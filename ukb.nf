@@ -1,5 +1,7 @@
 nextflow.preview.dsl=2
 
+/* Process UK Biobank data release into a DuckDB database */
+
 params.enc = "/exports/igmm/datastore/GenScotDepression/data/ukb/release/ukb670429/ukb670429.enc"
 params.key = "/exports/igmm/datastore/GenScotDepression/data/ukb/release/k4844-keys/k4844r670429.key" 
 

@@ -1,3 +1,10 @@
 .nextflow/
 .nextflow.log*
 bin/
+work/
+*.tsv
+*.csv
+*.ukb
+*.enc
+*.key
+*.enc_ukb

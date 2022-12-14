@@ -16,10 +16,10 @@ done
 cp /exports/igmm/eddie/GenScotDepression/local/bin/duckdb bin/duckdb
 ```
 
-Set up working directory
+Install required R libraries
 ```
-mkdir /exports/eddie/scratch/$USER/ukb-release
-ln -s /exports/eddie/scratch/$USER/ukb-release work
+module load igmm/apps/R/4.1.0
+Rscript -e "install.packages(c('tidyverse', 'snakecase', 'duckdb'))"
 ```
 
 ## Running the workflow

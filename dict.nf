@@ -3,31 +3,32 @@ nextflow.enable.dsl=2
 /* Process fields based on data dictionary categories */
 
 params.showcase = "https://biobank.ndph.ox.ac.uk/~bbdatan/Data_Dictionary_Showcase.tsv"
+params.fields = "fields2.ukb"
 
 workflow {
-    SHOWCASE_URL_CH = Channel
-        .value(params.showcase)
+    /* Download and process the showcase data dictionary */
+    SHOWCASE_CH = Channel
+        .fromPath(params.showcase)
 
-    SHOWCASE_CH = SHOWCASE(SHOWCASE_URL_CH)
+    SHOWCASE_FIELDS_CH = DICTIONARY(SHOWCASE_CH)
 
-    TABLE_FIELDS_CH = DICTIONARY(SHOWCASE_CH)
+    TABLES_FIELDS_CH = SHOWCASE_FIELDS_CH
+        .flatten()
+        .first()
+        .splitCsv(header: true)
 
-}
+    DICTIONARY_CH = SHOWCASE_FIELDS_CH.flatten().last()
 
-/* Download showcase data dictionary */
-process SHOWCASE {
-    tag "Downloading dictionary"
-    
-    input:
-    val url
-    
-    output:
-    path("Data_Dictionary_Showcase.tsv")
-    
-    script:
-    """
-    wget $url
-    """
+    /* process the fields contained in the data release */
+    FIELDS_CH = Channel
+        .fromPath(params.fields)
+        .splitText()
+
+    // example of filtering by field
+    TABLES_FIELDS_CH
+        .filter {it.FieldID == '3'}
+        .view()
+
 }
 
 /* Parse categories and fields from showcase dictionary */
