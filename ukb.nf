@@ -2,8 +2,8 @@ nextflow.preview.dsl=2
 
 /* Process UK Biobank data release into a DuckDB database */
 
-params.enc = "/exports/igmm/datastore/GenScotDepression/data/ukb/release/ukb670429/ukb670429.enc"
-params.key = "/exports/igmm/datastore/GenScotDepression/data/ukb/release/k4844-keys/k4844r670429.key" 
+params.enc = "ukb12345.enc"
+params.key = "k1234r12345.key" 
 
 workflow {
     // packed/encrypted UKB release file
@@ -19,12 +19,15 @@ workflow {
     
     // unpack the file
     UKB_ENC_CH = UNPACK(ENC_KEY_CH)
+
+    // data dictionary
+    UKB_DOCS_CH = DOCS(UKB_ENC_CH)
     
     // convert to csv
-    CSV_CH = CONVERT(UKB_ENC_CH)
+    //CSV_CH = CONVERT(UKB_ENC_CH)
     
     // copy to duckdb
-    DUCK_CH = DUCK(CSV_CH)
+    //DUCK_CH = DUCK(CSV_CH)
 }
 
 /* Stage release files */
@@ -63,6 +66,26 @@ process UNPACK {
     script:
     """
     ukbunpack $enc $key
+    """
+}
+
+/* Convert the data file to CSV */
+process DOCS {
+    tag "Extracting HTML dictionary"
+    
+    cpus = 1
+    memory = 2.GB
+    time = '6h'
+    
+    input:
+    path(enc_ukb)
+    
+    output:
+    tuple path('ukb.html'), path('fields.ukb')
+    
+    script:
+    """
+    dconvert $enc_ukb docs
     """
 }
 
