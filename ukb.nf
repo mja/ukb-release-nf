@@ -1,5 +1,7 @@
 nextflow.preview.dsl=2
 
+/* Process UK Biobank data release into a DuckDB database */
+
 params.enc = "ukb12345.enc"
 params.key = "k1234r12345.key" 
 
