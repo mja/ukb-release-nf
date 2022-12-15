@@ -16,18 +16,23 @@ workflow {
         .flatten()
         .first()
         .splitCsv(header: true)
+        .map {['FieldID': it.FieldID, 'Table': it.Table]}
 
     DICTIONARY_CH = SHOWCASE_FIELDS_CH.flatten().last()
 
     /* process the fields contained in the data release */
     FIELDS_CH = Channel
         .fromPath(params.fields)
-        .splitText()
+        .splitCsv(header: ['FieldID'])
 
-    // example of filtering by field
-    TABLES_FIELDS_CH
-        .filter {it.FieldID == '3'}
-        .view()
+    // filter the tables/fields list to fields that are in the data release
+    TABLES_FIELDS_INCLUDE_CH = TABLES_FIELDS_CH
+        .cross(FIELDS_CH)
+        .map {[it[0].Table, it[0].FieldID]}
+        .groupTuple()
+
+    // write out include list fields list for each table to extract
+    INCLUDE_CH = INCLUDE(TABLES_FIELDS_INCLUDE_CH)
 
 }
 
@@ -62,4 +67,21 @@ process DICTIONARY {
 
     write_csv(select(showcase_fields, Table, FieldID), 'Tables_Fields.csv')
     """
+}
+
+/* Write out a list of fields for an include list to convert */
+process INCLUDE {
+    tag "${table}"
+
+    input:
+    tuple val(table), val(fields)
+
+    output:
+    tuple val(table), path("${table}.fields")
+
+    script:
+    """
+    echo "${fields.join('\n')}" > ${table}.fields
+    """
+
 }
