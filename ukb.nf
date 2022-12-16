@@ -5,6 +5,7 @@ nextflow.preview.dsl=2
 params.enc = "ukb12345.enc"
 params.key = "k1234r12345.key"
 params.showcase = "https://biobank.ndph.ox.ac.uk/~bbdatan/Data_Dictionary_Showcase.tsv"
+params.encoding = "https://biobank.ndph.ox.ac.uk/showcase/ukb/utilx/encoding.dat"
 
 workflow {
     // packed/encrypted UKB release file
@@ -54,8 +55,12 @@ workflow {
     // write out include list fields list for each table to extract
     INCLUDE_CH = INCLUDE(TABLES_FIELDS_INCLUDE_CH)
     
+    // Download the encodings file
+    ENCODING_CH = Channel
+        .fromPath(params.encoding)
+    
     // convert to tab and R code
-    R_CH = CONVERT(UKB_ENC_CH, INCLUDE_CH)
+    R_CH = CONVERT(UKB_ENC_CH, ENCODING_CH, INCLUDE_CH)
     
     // copy to duckdb
     //DUCK_CH = DUCK(CSV_CH)
@@ -108,6 +113,10 @@ process DOCS {
     cpus = 1
     memory = 2.GB
     time = '6h'
+
+    scratch true
+    stageInMode 'copy'
+    stageOutMode 'copy'
     
     input:
     path(enc_ukb)
@@ -125,6 +134,8 @@ process DOCS {
 /* Parse categories and fields from showcase dictionary */
 process DICTIONARY {
     tag "Categorising fields"
+    
+    executor 'local'
     
     input:
     path(showcase)
@@ -161,6 +172,8 @@ process DICTIONARY {
 /* Write out a list of fields for an include list to convert */
 process INCLUDE {
     tag "${table}"
+    
+    executor 'local'
 
     input:
     tuple val(table), val(fields)
@@ -182,17 +195,26 @@ process CONVERT {
     cpus = 1
     memory = 2.GB
     time = '6h'
+
+    scratch true
+    stageInMode 'copy'
+    stageOutMode 'copy'
+    
+    // ignore dconvert exiting with status 1 (caused by "ROSETTA Error"),
+    // which can be safely ignored according to UKB Access
+    errorStrategy 'ignore'
     
     input:
     path(enc_ukb)
+    path(encoding)
     each path(include)
     
     output:
-    tuple path('${include.simpleName}.r'), path('${include.simpleName}.tab')
+    tuple path("${include.simpleName}.r"), path("${include.simpleName}.tab")
     
     script:
     """
-    dconvert $enc_ukb r -o${include.simpleName} -i${include}
+    dconvert $enc_ukb r -o${include.simpleName} -e${encoding} -i${include}
     """
 }
 
@@ -203,6 +225,10 @@ process DUCK {
     cpus = 8
     memory = 64.GB
     time = '6h'
+
+    scratch true
+    stageInMode 'copy'
+    stageOutMode 'copy'
     
     input:
     path(csv)
