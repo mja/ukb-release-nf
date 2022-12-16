@@ -5,7 +5,7 @@ nextflow.preview.dsl=2
 params.enc = "ukb12345.enc"
 params.key = "k1234r12345.key"
 params.showcase = "https://biobank.ndph.ox.ac.uk/~bbdatan/Data_Dictionary_Showcase.tsv"
-params.encoding = "https://biobank.ndph.ox.ac.uk/showcase/ukb/utilx/encoding.dat"
+params.encoding = "https://biobank.ndph.ox.ac.uk/ukb/ukb/utilx/encoding.dat"
 
 workflow {
     // packed/encrypted UKB release file
@@ -268,7 +268,7 @@ process DUCK {
     module 'igmm/apps/R/4.1.0'
     
     cpus = 2
-    memory = 24.GB
+    memory = 32.GB
     time = '30m'
 
     scratch true
