@@ -62,8 +62,11 @@ workflow {
     // convert to tab and R code
     R_CH = CONVERT(UKB_ENC_CH, ENCODING_CH, INCLUDE_CH)
     
+    // source the R code and write out the data.frame as RDS
+    RDS_CH = RDS(R_CH)
+    
     // copy to duckdb
-    //DUCK_CH = DUCK(CSV_CH)
+    DUCK_CH = DUCK(RDS_CH)
     
 }
 
@@ -136,6 +139,7 @@ process DICTIONARY {
     tag "Categorising fields"
     
     executor 'local'
+    module 'igmm/apps/R/4.1.0'
     
     input:
     path(showcase)
@@ -218,26 +222,75 @@ process CONVERT {
     """
 }
 
-/* Copy the CSV to DuckDB */
-process DUCK {
-    tag "Creating DuckDB"
+/* Process tab data files using the associated R script 
+   Write out as .rds */
+process RDS {
+    tag "Running ${rsource.simpleName}"
     
-    cpus = 8
-    memory = 64.GB
-    time = '6h'
+    module 'igmm/apps/R/4.1.0'
+    
+    cpus = 3
+    memory = 48.GB
+    time = '2h'
+    
+    scratch true
+    stageInMode 'copy'
+    stageOutMode 'copy'
+    
+    input:
+    tuple path(rsource), path(tab)
+    
+    output:
+    path("${rsource.simpleName}.rds")
+    
+    script:
+    """
+    #!/usr/bin/env Rscript
+    
+    # load the data file
+    bd <- read.table("${tab}", header=TRUE, sep="\\t")
+    
+    # source the R script, but skip line3 that loads the data file
+    # with a hardcoded full path
+    rsource_lines <- readLines("${rsource}", warn=FALSE)
+    rsource_exprs <- str2expression(rsource_lines[-3])
+    source(exprs=rsource_exprs)
+    
+    # write out the data.frame an RDS file
+    saveRDS(bd, "${rsource.simpleName}.rds")
+    """
+}
+
+/* Copy the RDS to DuckDB */
+process DUCK {
+    tag "DuckDB ${rds.simpleName}"
+    
+    module 'igmm/apps/R/4.1.0'
+    
+    cpus = 2
+    memory = 24.GB
+    time = '30m'
 
     scratch true
     stageInMode 'copy'
     stageOutMode 'copy'
     
     input:
-    path(csv)
+    path(rds)
     
     output:
-    path('ukb.duckdb')
+    path("${rds.simpleName}.duckdb")
     
     script:
     """
-    duckdb ukb.duckdb "CREATE TABLE ukb AS SELECT * FROM read_csv_auto('$csv');"
+    #!/usr/bin/env Rscript
+    library(DBI)
+    
+    con = dbConnect(duckdb::duckdb(), dbdir="${rds.simpleName}.duckdb", read_only=FALSE)
+    
+    Table <- readRDS("${rds}")
+    
+    dbWriteTable(con, "${rds.simpleName}", Table)
+    dbDisconnect(con, shutdown=TRUE)
     """
 }
