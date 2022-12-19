@@ -65,8 +65,12 @@ workflow {
     // source the R code and write out the data.frame as RDS
     RDS_CH = RDS(R_CH)
     
+    // collect RDS files into a single list
+    RDS_COLLECT_CH = RDS_CH
+        .collect()
+    
     // copy to duckdb
-    DUCK_CH = DUCK(RDS_CH)
+    DUCK_CH = DUCK(RDS_COLLECT_CH)
     
 }
 
@@ -218,7 +222,7 @@ process CONVERT {
     
     script:
     """
-    dconvert $enc_ukb r -o${include.simpleName} -e${encoding} -i${include}
+    dconvert $enc_ukb r -o${include.simpleName} -e${encoding} -i${include} || true
     """
 }
 
@@ -261,36 +265,51 @@ process RDS {
     """
 }
 
-/* Copy the RDS to DuckDB */
+/* Copy the RDSs to DuckDB */
 process DUCK {
-    tag "DuckDB ${rds.simpleName}"
+    tag "DuckDB"
     
     module 'igmm/apps/R/4.1.0'
     
-    cpus = 2
-    memory = 32.GB
-    time = '30m'
+    cpus = 4
+    memory = 64.GB
+    time = '1h'
 
     scratch true
     stageInMode 'copy'
     stageOutMode 'copy'
     
     input:
-    path(rds)
+    path(rds_collection)
     
     output:
-    path("${rds.simpleName}.duckdb")
+    path("ukb.duckdb")
     
     script:
     """
     #!/usr/bin/env Rscript
+    
     library(DBI)
+    library(dbplyr)
+    library(stringr)
     
-    con = dbConnect(duckdb::duckdb(), dbdir="${rds.simpleName}.duckdb", read_only=FALSE)
+    # parse out list of RDS files containing table data
+    rds_paths <- "${rds_collection}"
+    rds_path_list <- str_split(rds_paths, pattern=' ')[[1]]
     
-    Table <- readRDS("${rds}")
+    # open the database collection
+    con = dbConnect(duckdb::duckdb(), dbdir="ukb.duckdb", read_only=FALSE)
     
-    dbWriteTable(con, "${rds.simpleName}", Table)
+    # process each table
+    for(rds in rds_path_list) {
+        Table <- readRDS(rds)
+        TableName <- str_split(rds, pattern='\\\\.')[[1]][1]
+        dbWriteTable(con, TableName, Table)
+        rm(Table); gc()
+        index_query <- build_sql("CREATE UNIQUE INDEX ", ident(TableName), "_feid_idx ON ", ident(TableName), " (\\"f.eid\\")", con = con)
+        dbExecute(con, index_query)
+    }
+    
     dbDisconnect(con, shutdown=TRUE)
     """
 }

@@ -19,7 +19,7 @@ cp /exports/igmm/eddie/GenScotDepression/local/bin/duckdb bin/duckdb
 Install required R libraries
 ```
 module load igmm/apps/R/4.1.0
-Rscript -e "install.packages(c('dplyr', 'readr', 'tidyr', 'snakecase', 'duckdb'))"
+Rscript -e "install.packages(c('dplyr', 'readr', 'tidyr', 'stringr', 'snakecase', 'duckdb'))"
 ```
 
 ## Running the workflow
