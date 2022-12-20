@@ -147,7 +147,7 @@ process DOCS {
 process PUB {
     tag "Publish dictionary"
     
-    publishDir 'release'
+    publishDir 'release', mode: 'copy'
     
     executor 'local'
     
