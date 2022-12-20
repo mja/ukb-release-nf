@@ -2,9 +2,11 @@
 .nextflow.log*
 bin/
 work/
+release/
 *.tsv
 *.csv
 *.ukb
 *.enc
 *.key
 *.enc_ukb
+*.duckdb

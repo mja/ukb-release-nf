@@ -63,14 +63,17 @@ workflow {
     R_CH = CONVERT(UKB_ENC_CH, ENCODING_CH, INCLUDE_CH)
     
     // source the R code and write out the data.frame as RDS
-    RDS_CH = RDS(R_CH)
+    // also pass in the dictionary for additional data munging
+    R_DICTIONARY_CH = R_CH
+        .combine(DICTIONARY_CH)
+    RDS_CH = RDS(R_DICTIONARY_CH)
     
     // collect RDS files into a single list
     RDS_COLLECT_CH = RDS_CH
         .collect()
     
     // copy to duckdb
-    DUCK_CH = DUCK(RDS_COLLECT_CH)
+    DUCK_CH = DUCK(RDS_COLLECT_CH, DICTIONARY_CH, ENC_CH)
     
 }
 
@@ -242,7 +245,7 @@ process RDS {
     stageOutMode 'copy'
     
     input:
-    tuple path(rsource), path(tab)
+    tuple path(rsource), path(tab), path(dictionary)
     
     output:
     path("${rsource.simpleName}.rds")
@@ -250,15 +253,39 @@ process RDS {
     script:
     """
     #!/usr/bin/env Rscript
+    library(readr)
+    library(dplyr)
+    library(stringr)
+    library(lubridate)
     
     # load the data file
     bd <- read.table("${tab}", header=TRUE, sep="\\t")
+    
+    # load the dictionary
+    dictionary <- read_tsv("${dictionary}")
     
     # source the R script, but skip line3 that loads the data file
     # with a hardcoded full path
     rsource_lines <- readLines("${rsource}", warn=FALSE)
     rsource_exprs <- str2expression(rsource_lines[-3])
     source(exprs=rsource_exprs)
+    
+    # find fields that are bulk text identifiers and convert them to factors
+    bulk_field_ids <- dictionary |> filter(ItemType == "Bulk") |> mutate(FieldID=paste0("f.", FieldID, ".")) |> pull(FieldID)
+    bulk_fields <- paste0("f.", bulk_field_ids,  ".")
+    bulk_field_list <- unlist(lapply(bulk_fields, function(field) str_subset(colnames(bd), fixed(field))))
+    
+    # find fields that are times and convert them to timestamps
+    time_field_ids <- dictionary |> filter(ValueType == "Time") |> pull(FieldID)
+    time_fields <- paste0("f.", time_field_ids,  ".")
+    time_field_list <- unlist(lapply(time_fields, function(field) str_subset(colnames(bd), fixed(field))))
+    
+    # only process columns that are still character
+    bulk_fields_mu <- bd |> select(one_of(bulk_field_list)) |> select(where(is.character)) |> colnames()
+    time_fields_mu <- bd |> select(one_of(time_field_list)) |> select(where(is.character)) |> colnames()
+    
+    bd <- bd |> mutate(across(one_of(bulk_fields_mu), factor)) |>
+                mutate(across(one_of(time_fields_mu), ymd_hms))
     
     # write out the data.frame an RDS file
     saveRDS(bd, "${rsource.simpleName}.rds")
@@ -269,6 +296,7 @@ process RDS {
 process DUCK {
     tag "DuckDB"
     
+    publishDir 'release', mode: 'copy'
     module 'igmm/apps/R/4.1.0'
     
     cpus = 4
@@ -276,14 +304,16 @@ process DUCK {
     time = '1h'
 
     scratch true
-    stageInMode 'copy'
+    stageInMode 'symlink'
     stageOutMode 'copy'
     
     input:
     path(rds_collection)
+    path(dictionary)
+    path(enc)
     
     output:
-    path("ukb.duckdb")
+    path("${enc.simpleName}.duckdb")
     
     script:
     """
@@ -291,6 +321,7 @@ process DUCK {
     
     library(DBI)
     library(dbplyr)
+    library(readr)
     library(stringr)
     
     # parse out list of RDS files containing table data
@@ -298,7 +329,12 @@ process DUCK {
     rds_path_list <- str_split(rds_paths, pattern=' ')[[1]]
     
     # open the database collection
-    con = dbConnect(duckdb::duckdb(), dbdir="ukb.duckdb", read_only=FALSE)
+    con = dbConnect(duckdb::duckdb(), dbdir="${enc.simpleName}.duckdb", read_only=FALSE)
+    
+    # load the dictionary
+    dictionary <- read_tsv("${dictionary}")
+    
+    dbWriteTable(con, 'Dictionary', dictionary)
     
     # process each table
     for(rds in rds_path_list) {
