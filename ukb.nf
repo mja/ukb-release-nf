@@ -24,6 +24,9 @@ workflow {
 
     // data dictionary
     UKB_DOCS_CH = DOCS(UKB_ENC_CH)
+    
+    // publish the data dictionary
+    PUB(UKB_DOCS_CH, ENC_CH)
 
      /* Download and process the showcase data dictionary */
     SHOWCASE_CH = Channel
@@ -140,6 +143,26 @@ process DOCS {
     """
 }
 
+/* Publish the HTML data dictionary */
+process PUB {
+    tag "Publish dictionary"
+    
+    publishDir 'release'
+    
+    executor 'local'
+    
+    input:
+    tuple path('ukb.html'), path('fields.ukb')
+    path(enc)
+    
+    output:
+    path("${enc.simpleName}.html")
+    
+    script:
+    """
+    cp ukb.html "${enc.simpleName}.html"
+    """
+}
 
 /* Parse categories and fields from showcase dictionary */
 process DICTIONARY {
