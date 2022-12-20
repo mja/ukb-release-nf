@@ -1,6 +1,6 @@
-# UKB Release Nextflow Workflow
+# UKB Release → DuckDB Nextflow Workflow
 
-Process new UKB releases.
+Process new [UKB releases](https://biobank.ndph.ox.ac.uk/showcase/index.cgi) into tables in [DuckDB](https://duckdb.org/), organised by category with a built-in data dictionary.
 
 ## Initial setup
 
