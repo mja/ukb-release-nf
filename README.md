@@ -13,46 +13,33 @@ wget -nd -P bin biobank.ndph.ox.ac.uk/ukb/util/ukbunpack
 for bin in bin/*; do
     chmod 755 $bin
 done
-cp /exports/igmm/eddie/GenScotDepression/local/bin/duckdb-0.7.1 bin/duckdb
 ```
 
 Install required R libraries
 ```
-module load igmm/apps/R/4.1.0
 Rscript -e "install.packages(c('dplyr', 'readr', 'tidyr', 'stringr', 'lubridate', 'snakecase', 'remotes'))"
 Rscript -e "remotes::install_version('duckdb', '0.7.1-1')"
 ```
 
 ## Running the workflow
 
-The workflow is run from an interactive session. Use a screen manager so that you can disconnect from the session while the workflow runs. 
+### Configuration
 
-Connect to Eddie and start a [tmux](https://www.redhat.com/sysadmin/introduction-tmux-linux) session
-```sh
-ssh UUN@eddie.ecdf.ed.ac.uk
-tmux new-session -s ukb
-```
-- start an interactive session
-```sh
-qlogin -l h_vmem=8G
-```
-Navigate back to the `ukb-release-nf` directory
+`process.beforeScript` should load the version of R where the DuckDB library has been installed. See [nf-core/configs](https://github.com/nf-core/configs) for possible information on your system. 
 
-Load the UGE and Nextflow modules
-```sh
-module load uge
-module load igmm/apps/nextflow/20.04.1
-```
+### Execution
 
-Run the workflow on a UKB release download and key file:
+Run the workflow on a UKB release download and key file.
+
 ```sh
 nextflow run ukb.nf \
--c eddie.config \
--work-dir /exports/eddie/scratch/$USER/ukb-release \
+-c custom.config \
 -resume \
---enc /exports/igmm/datastore/GenScotDepression/data/ukb/release/ukb670429/ukb670429.enc \
---key /exports/igmm/datastore/GenScotDepression/data/ukb/release/k4844-keys/k4844r670429.key
+--enc ukb12345.enc \
+--key k1234r12345.key
 ```
+
+
 
 ## Access the database
 
@@ -70,7 +57,7 @@ Work with the database tables using [dbplyr](https://dbplyr.tidyverse.org)
 library(DBI)
 library(dplyr)
 
-con = dbConnect(duckdb::duckdb(), dbdir="release/ukb670429.duckdb", read_only=TRUE)
+con = dbConnect(duckdb::duckdb(), dbdir="release/ukb12345.duckdb", read_only=TRUE)
 
 # read in the the data dictionary
 dictionary <- tbl(con, 'Dictionary')
@@ -98,8 +85,7 @@ dictionary |>
     filter(FieldID == 4598) |>
     select(Table, FieldID, Field)
 ## # Source:   lazy query [?? x 3]
-## # Database: DuckDB 0.6.1
-## #   4.1.0/release/ukb670429.duckdb]
+## # Database: DuckDB 0.7.1 [R 4.1.2/release/ukb12345.duckdb]
 ##   Table       FieldID Field                          
 ##   <chr>         <dbl> <chr>                          
 ## 1 Touchscreen    4598 Ever depressed for a whole week
@@ -111,8 +97,7 @@ touchscreen <- tbl(con, 'Touchscreen')
 touchscreen |>
     count(f.4598.0.0)
 ## # Source:   lazy query [?? x 2]
-## # Database: DuckDB 0.6.1 [madams23@Linux 3.10.0-1160.71.1.el7.x86_64:R
-## #   4.1.0/release/ukb670429.duckdb]
+## # Database: DuckDB 0.7.1 [R 4.1.2/release/ukb12345.duckdb]
 ##   f.4598.0.0                n
 ##   <fct>                 <dbl>
 ## 1 NA                   329735
@@ -137,7 +122,7 @@ import duckdb
 import pandas as pd
 
 # connect to the database
-con = duckdb.connect(database='release/ukb670429.duckdb', read_only=True)
+con = duckdb.connect(database='release/ukb12345.duckdb', read_only=True)
 
 # get the Dictionary table
 dictionary = con.table('Dictionary')

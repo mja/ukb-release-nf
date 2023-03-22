@@ -3,6 +3,7 @@
 bin/
 work/
 release/
+*.config
 *.tsv
 *.csv
 *.ukb
