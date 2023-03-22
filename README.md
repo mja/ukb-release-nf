@@ -13,13 +13,14 @@ wget -nd -P bin biobank.ndph.ox.ac.uk/ukb/util/ukbunpack
 for bin in bin/*; do
     chmod 755 $bin
 done
-cp /exports/igmm/eddie/GenScotDepression/local/bin/duckdb bin/duckdb
+cp /exports/igmm/eddie/GenScotDepression/local/bin/duckdb-0.7.1 bin/duckdb
 ```
 
 Install required R libraries
 ```
 module load igmm/apps/R/4.1.0
-Rscript -e "install.packages(c('dplyr', 'readr', 'tidyr', 'stringr', 'lubridate', 'snakecase', 'duckdb'))"
+Rscript -e "install.packages(c('dplyr', 'readr', 'tidyr', 'stringr', 'lubridate', 'snakecase', 'remotes'))"
+Rscript -e "remotes::install_version('duckdb', '0.7.1-1')"
 ```
 
 ## Running the workflow
