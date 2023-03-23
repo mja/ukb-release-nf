@@ -40,7 +40,7 @@ Rscript -e "remotes::install_version('duckdb', '0.7.1-1')"
 Run the workflow on a UKB release download and key file.
 
 ```sh
-nextflow run duck.nf \
+nextflow run duckdb.nf \
 -c custom.config \
 -resume \
 --enc ukb12345.enc \
