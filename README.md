@@ -1,10 +1,18 @@
+# Nextflow workflows for processing UK Biobank releases
+
+Process data releases from [UK Biobank](https://www.ukbiobank.ac.uk/).
+
+## Data
+
+Download your `.enc` encoded phenotype file and `.key` keyfile from the [AMS Portal](https://bbams.ndph.ox.ac.uk/ams/).
+
 # d*U*c*K*d*B*: UKB Release → DuckDB Nextflow Workflow
 
 Process new [UKB releases](https://biobank.ndph.ox.ac.uk/showcase/index.cgi) into tables in [DuckDB](https://duckdb.org/), organised by category with a built-in data dictionary.
 
 ## Initial setup
 
-Download UKB and database programs
+Download UKB programs
 ```
 mkdir bin
 wget -nd -P bin biobank.ndph.ox.ac.uk/ukb/util/ukbconv
@@ -32,7 +40,7 @@ Rscript -e "remotes::install_version('duckdb', '0.7.1-1')"
 Run the workflow on a UKB release download and key file.
 
 ```sh
-nextflow run ukb.nf \
+nextflow run duck.nf \
 -c custom.config \
 -resume \
 --enc ukb12345.enc \
