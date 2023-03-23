@@ -10,23 +10,17 @@ params.encoding = "https://biobank.ndph.ox.ac.uk/ukb/ukb/utilx/encoding.dat"
 workflow {
     // packed/encrypted UKB release file
     ENC_CH = Channel
-        .fromPath(params.enc)
+        .fromPath(params.enc, checkIfExists: true)
     
     // decryption key
     KEY_CH = Channel
-        .fromPath(params.key)
-        
-    // stage the files
-    ENC_KEY_CH = STAGE(ENC_CH, KEY_CH)
+        .fromPath(params.key, checkIfExists: true)
     
     // unpack the file
-    UKB_ENC_CH = UNPACK(ENC_KEY_CH)
+    UKB_ENC_CH = UNPACK(ENC_CH, KEY_CH)
 
     // data dictionary
     UKB_DOCS_CH = DOCS(UKB_ENC_CH)
-    
-    // publish the data dictionary
-    PUB(UKB_DOCS_CH, ENC_CH)
 
      /* Download and process the showcase data dictionary */
     SHOWCASE_CH = Channel
@@ -80,25 +74,6 @@ workflow {
     
 }
 
-/* Stage release files */
-process STAGE {
-    tag "Staging data"
-    queue "staging"
-    
-    input:
-    path enc
-    path key
-    
-    output:
-    tuple path('ukb.enc'), path('ukb.key')
-    
-    script:
-    """
-    cp $enc ukb.enc
-    cp $key ukb.key
-    """
-}
-
 /* Unpack the data file */
 process UNPACK {
     tag "Unpacking data"
@@ -108,10 +83,11 @@ process UNPACK {
     time = '30m'
     
     input:
-    tuple path(enc), path(key)
+    path enc
+    path key
     
     output:
-    path('ukb.enc_ukb')
+    path('*.enc_ukb')
     
     script:
     """
@@ -122,6 +98,8 @@ process UNPACK {
 /* Convert the data file to CSV */
 process DOCS {
     tag "Extracting HTML dictionary"
+
+    publishDir 'release', mode: 'copy'
     
     cpus = 1
     memory = 2.GB
@@ -135,7 +113,7 @@ process DOCS {
     path(enc_ukb)
     
     output:
-    tuple path('ukb.html'), path('fields.ukb')
+    tuple path('*.html'), path('fields.ukb')
     
     script:
     """
@@ -143,33 +121,12 @@ process DOCS {
     """
 }
 
-/* Publish the HTML data dictionary */
-process PUB {
-    tag "Publish dictionary"
-    
-    publishDir 'release', mode: 'copy'
-    
-    executor 'local'
-    
-    input:
-    tuple path('ukb.html'), path('fields.ukb')
-    path(enc)
-    
-    output:
-    path("${enc.simpleName}.html")
-    
-    script:
-    """
-    cp ukb.html "${enc.simpleName}.html"
-    """
-}
-
 /* Parse categories and fields from showcase dictionary */
 process DICTIONARY {
     tag "Categorising fields"
-    
-    executor 'local'
-    module 'igmm/apps/R/4.1.0'
+
+    cpus = 1
+    memory = 2.GB
     
     input:
     path(showcase)
@@ -257,8 +214,6 @@ process CONVERT {
 process RDS {
     tag "Running ${rsource.simpleName}"
     
-    module 'igmm/apps/R/4.1.0'
-    
     cpus = 3
     memory = 48.GB
     time = '2h'
@@ -320,7 +275,6 @@ process DUCK {
     tag "DuckDB"
     
     publishDir 'release', mode: 'copy'
-    module 'igmm/apps/R/4.1.0'
     
     cpus = 4
     memory = 64.GB
